@@ -1,12 +1,10 @@
 # user_bot.py
 import asyncio
 import logging
-import random
 import os
 from datetime import datetime
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from pyrogram.handlers import MessageHandler, CallbackQueryHandler
+from pyrogram import Client
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,14 +15,10 @@ API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
 
 CHANNEL_ID = "oxidebtatstvo"
-ADMIN_ID = 1302493787
-ADMIN_USERNAME = "nikita1055"
 
-settings = {
-    "message": "продаю анрут чит магик 270 руб писать @nikita1055",
-    "interval": 60,
-    "is_active": True,
-}
+# === СООБЩЕНИЕ (ТОЧНО КАК ТЫ НАПИСАЛ) ===
+MESSAGE_TEXT = "продаю анрут чит магик 270 руб писать `@nikita1055`"
+INTERVAL = 60  # 1 минута
 
 # === КЛИЕНТ ===
 def create_client():
@@ -35,7 +29,6 @@ def create_client():
             api_hash=API_HASH,
             session_string=SESSION_STRING,
             sleep_threshold=60,
-            in_memory=True,  # Важно! Храним сессию в памяти
         )
     else:
         return Client(
@@ -43,128 +36,51 @@ def create_client():
             api_id=API_ID,
             api_hash=API_HASH,
             sleep_threshold=60,
-            in_memory=True,
         )
 
 app = create_client()
 
 # === КНОПКА ===
-def get_copy_button():
+def get_button():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📋 НАПИСАТЬ @nikita1055", callback_data="copy_nikita1055")]
     ])
 
-# === ОБРАБОТЧИК КНОПОК ===
-async def handle_callback(client, callback_query):
+# === ОБРАБОТЧИК КНОПКИ ===
+@app.on_callback_query()
+async def handle_copy(client, callback_query):
     if callback_query.data == "copy_nikita1055":
         await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
         await callback_query.message.reply("📋 Напиши: @nikita1055")
 
-# === ОБРАБОТЧИК ВСЕХ СООБЩЕНИЙ (ПРЯМОЙ) ===
-async def handle_messages(client, message: Message):
-    # Логируем ВСЁ
-    log_text = f"📩 СООБЩЕНИЕ: от {message.from_user.id}"
-    if message.text:
-        log_text += f", текст: {message.text}"
-    if message.chat:
-        log_text += f", чат: {message.chat.id} ({message.chat.type})"
-    logging.info(log_text)
-    
-    # Если это не личка - игнорируем
-    if message.chat.type != "private":
-        return
-    
-    # Если сообщение от админа
-    if message.from_user.id == ADMIN_ID and message.text:
-        text = message.text.strip()
-        
-        # Команды
-        if text == "/start":
-            status = "✅ Активен" if settings["is_active"] else "❌ Остановлен"
-            await message.reply(
-                f"🤖 Бот запущен\n\n"
-                f"• Интервал: {settings['interval']} сек\n"
-                f"• Статус: {status}\n\n"
-                f"📌 Используй /help"
-            )
-        elif text == "/help":
-            await message.reply(
-                f"📚 Команды:\n\n"
-                f"/start — статус\n"
-                f"/help — помощь\n"
-                f"/status — настройки\n"
-                f"/set_text [текст] — сменить текст\n"
-                f"/set_interval [сек] — сменить интервал\n"
-                f"/start_spam — запустить\n"
-                f"/stop_spam — остановить\n"
-                f"/test — тест в канал"
-            )
-        elif text == "/status":
-            await message.reply(
-                f"🔄 Активен: {'✅' if settings['is_active'] else '❌'}\n"
-                f"⏱ Интервал: {settings['interval']} сек\n"
-                f"📝 Текст: {settings['message']}"
-            )
-        elif text.startswith("/set_text "):
-            new_text = text.replace("/set_text ", "").strip()
-            if new_text:
-                settings["message"] = new_text
-                await message.reply(f"✅ Текст обновлён:\n{new_text}")
-            else:
-                await message.reply("❌ Использование: /set_text [текст]")
-        elif text.startswith("/set_interval "):
-            try:
-                interval = int(text.replace("/set_interval ", "").strip())
-                if interval > 0:
-                    settings["interval"] = interval
-                    await message.reply(f"✅ Интервал: {interval} сек")
-                else:
-                    await message.reply("❌ Минимум 1 секунда")
-            except:
-                await message.reply("❌ Введите число")
-        elif text == "/start_spam":
-            settings["is_active"] = True
-            await message.reply("✅ Спам запущен!")
-        elif text == "/stop_spam":
-            settings["is_active"] = False
-            await message.reply("⛔ Спам остановлен!")
-        elif text == "/test":
-            try:
-                await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
-                await message.reply("✅ Тест отправлен в канал!")
-            except Exception as e:
-                await message.reply(f"❌ Ошибка: {e}")
-        else:
-            await message.reply("❌ Неизвестная команда. Используй /help")
-    else:
-        # Если пишет не админ
-        if message.from_user.id != ADMIN_ID:
-            await message.reply("⛔ Доступ запрещен!")
-
-# === РЕГИСТРИРУЕМ ОБРАБОТЧИКИ ===
-app.add_handler(MessageHandler(handle_messages))
-app.add_handler(CallbackQueryHandler(handle_callback))
-
 # === СПАМ-ЦИКЛ ===
 async def spam_loop():
     while True:
-        if settings["is_active"]:
-            try:
-                await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
-                logging.info(f"✅ Отправлено в {datetime.now()}")
-                await asyncio.sleep(settings["interval"] + random.uniform(-2, 2))
-            except Exception as e:
-                logging.error(f"❌ Ошибка в спам-цикле: {e}")
-                await asyncio.sleep(10)
-        else:
-            await asyncio.sleep(1)
+        try:
+            await app.send_message(
+                CHANNEL_ID,
+                MESSAGE_TEXT,
+                reply_markup=get_button()
+            )
+            logging.info(f"✅ Отправлено в {datetime.now()}")
+        except Exception as e:
+            logging.error(f"❌ Ошибка: {e}")
+            # Если дубликат сессии - пересоздаём клиент
+            if "AUTH_KEY_DUPLICATED" in str(e):
+                logging.warning("⚠️ Дубликат сессии! Пересоздаём клиент...")
+                try:
+                    await app.stop()
+                    global app
+                    app = create_client()
+                    logging.info("✅ Клиент пересоздан!")
+                except Exception as e2:
+                    logging.error(f"❌ Ошибка при пересоздании: {e2}")
+        
+        await asyncio.sleep(INTERVAL)
 
 # === ЗАПУСК ===
 async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    logging.basicConfig(level=logging.INFO)
     try:
         async with app:
             asyncio.create_task(spam_loop())
