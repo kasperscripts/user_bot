@@ -3,7 +3,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from pyrogram import Client
+from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 
@@ -14,11 +14,10 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
 
-CHANNEL_ID = "oxidebtatstvo"
+CHANNEL_ID = "oxidebtatstvo"  # или "@oxidebtatstvo"
 
 # === СООБЩЕНИЕ ===
 MESSAGE_TEXT = "продаю анрут чит магик 270 руб писать `@nikita1055`"
-INTERVAL = 60  # 1 минута
 
 # === ФУНКЦИЯ СОЗДАНИЯ КЛИЕНТА ===
 def create_client():
@@ -44,55 +43,50 @@ def get_button():
         [InlineKeyboardButton("📋 НАПИСАТЬ @nikita1055", callback_data="copy_nikita1055")]
     ])
 
-# === СОЗДАЁМ КЛИЕНТ ===
-app = create_client()
-
 # === ОБРАБОТЧИК КНОПКИ ===
-@app.on_callback_query()
 async def handle_copy(client, callback_query):
     if callback_query.data == "copy_nikita1055":
         await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
         await callback_query.message.reply("📋 Напиши: @nikita1055")
 
-# === СПАМ-ЦИКЛ ===
-async def spam_loop(client):
-    while True:
-        try:
-            await client.send_message(
-                CHANNEL_ID,
-                MESSAGE_TEXT,
-                reply_markup=get_button()
-            )
-            logging.info(f"✅ Отправлено в {datetime.now()}")
-        except Exception as e:
-            error_str = str(e)
-            logging.error(f"❌ Ошибка: {error_str}")
-            
-            # Если дубликат сессии - пересоздаём клиент и выходим из цикла
-            if "AUTH_KEY_DUPLICATED" in error_str:
-                logging.warning("⚠️ Дубликат сессии! Перезапускаем бота...")
-                # Сигнализируем о необходимости перезапуска
-                return
-        
-        await asyncio.sleep(INTERVAL)
+# === ОБРАБОТЧИК НОВЫХ СООБЩЕНИЙ В КАНАЛЕ ===
+async def handle_channel_messages(client, message):
+    # Проверяем, что сообщение из нужного канала
+    if message.chat.username != CHANNEL_ID.replace("@", ""):
+        return
+    
+    # Игнорируем свои же сообщения (чтобы не зациклиться)
+    if message.from_user and message.from_user.is_self:
+        return
+    
+    logging.info(f"📩 Новое сообщение в канале от {message.from_user.id if message.from_user else 'аноним'}")
+    
+    # Отправляем НОВОЕ сообщение (НЕ ответ)
+    try:
+        await client.send_message(
+            CHANNEL_ID,
+            MESSAGE_TEXT,
+            reply_markup=get_button()
+        )
+        logging.info(f"✅ Сообщение отправлено после сообщения {message.id}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка при отправке: {e}")
 
-# === ЗАПУСК С ПЕРЕЗАПУСКОМ ПРИ ДУБЛИКАТЕ ===
+# === ЗАПУСК ===
 async def main():
     logging.basicConfig(level=logging.INFO)
     
-    # Бесконечный цикл перезапусков при дубликате
     while True:
         try:
-            # Создаём свежий клиент
             client = create_client()
             
+            # Регистрируем обработчики
+            client.add_handler(filters.chat(CHANNEL_ID) & filters.incoming, handle_channel_messages)
+            client.add_handler(filters.callback_query, handle_copy)
+            
             async with client:
-                logging.info("🚀 Бот запущен")
-                # Запускаем спам-цикл
-                await spam_loop(client)
-                
-                # Если вышли из спам-цикла - значит была ошибка
-                logging.warning("⚠️ Спам-цикл завершён, перезапускаем бота...")
+                logging.info("🚀 Бот запущен. Ожидаю сообщения в канале...")
+                await asyncio.Event().wait()
                 
         except Exception as e:
             logging.error(f"❌ Критическая ошибка: {e}")
