@@ -37,6 +37,9 @@ def create_client():
             sleep_threshold=60,
         )
 
+# === СОЗДАЁМ КЛИЕНТ ===
+app = create_client()
+
 # === КНОПКА ===
 def get_button():
     return InlineKeyboardMarkup([
@@ -76,9 +79,6 @@ async def main():
     
     while True:
         try:
-            # Создаём клиент
-            app = create_client()
-            
             async with app:
                 logging.info("🚀 Бот запущен. Ожидаю сообщения в канале...")
                 await asyncio.Event().wait()
