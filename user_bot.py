@@ -5,7 +5,8 @@ import random
 import os
 from datetime import datetime
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,6 +35,7 @@ def create_client():
             api_hash=API_HASH,
             session_string=SESSION_STRING,
             sleep_threshold=60,
+            in_memory=True,  # Важно! Храним сессию в памяти
         )
     else:
         return Client(
@@ -41,6 +43,7 @@ def create_client():
             api_id=API_ID,
             api_hash=API_HASH,
             sleep_threshold=60,
+            in_memory=True,
         )
 
 app = create_client()
@@ -51,91 +54,96 @@ def get_copy_button():
         [InlineKeyboardButton("📋 НАПИСАТЬ @nikita1055", callback_data="copy_nikita1055")]
     ])
 
-@app.on_callback_query()
-async def handle_copy(client, callback_query):
+# === ОБРАБОТЧИК КНОПОК ===
+async def handle_callback(client, callback_query):
     if callback_query.data == "copy_nikita1055":
         await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
         await callback_query.message.reply("📋 Напиши: @nikita1055")
 
-# === ПРИНУДИТЕЛЬНЫЙ ОБРАБОТЧИК ВСЕХ СООБЩЕНИЙ (БЕЗ ФИЛЬТРОВ!) ===
-@app.on_message()
-async def catch_all_messages(client, message):
-    # Логируем АБСОЛЮТНО ВСЕ сообщения
-    log_msg = f"🔔 СООБЩЕНИЕ: от {message.from_user.id}"
+# === ОБРАБОТЧИК ВСЕХ СООБЩЕНИЙ (ПРЯМОЙ) ===
+async def handle_messages(client, message: Message):
+    # Логируем ВСЁ
+    log_text = f"📩 СООБЩЕНИЕ: от {message.from_user.id}"
     if message.text:
-        log_msg += f", текст: {message.text}"
+        log_text += f", текст: {message.text}"
     if message.chat:
-        log_msg += f", чат: {message.chat.id} ({message.chat.type})"
-    logging.info(log_msg)
+        log_text += f", чат: {message.chat.id} ({message.chat.type})"
+    logging.info(log_text)
     
-    # Если сообщение из лички
-    if message.chat.type == "private":
-        # Если это команда от админа
-        if message.from_user.id == ADMIN_ID and message.text:
-            text = message.text.strip()
-            
-            # Обрабатываем команды
-            if text == "/start":
-                status = "✅ Активен" if settings["is_active"] else "❌ Остановлен"
-                await message.reply(
-                    f"🤖 Бот запущен\n\n"
-                    f"• Интервал: {settings['interval']} сек\n"
-                    f"• Статус: {status}\n\n"
-                    f"📌 Используй /help"
-                )
-            elif text == "/help":
-                await message.reply(
-                    f"📚 Команды:\n\n"
-                    f"/start — статус\n"
-                    f"/help — помощь\n"
-                    f"/status — настройки\n"
-                    f"/set_text [текст] — сменить текст\n"
-                    f"/set_interval [сек] — сменить интервал\n"
-                    f"/start_spam — запустить\n"
-                    f"/stop_spam — остановить\n"
-                    f"/test — тест в канал"
-                )
-            elif text == "/status":
-                await message.reply(
-                    f"🔄 Активен: {'✅' if settings['is_active'] else '❌'}\n"
-                    f"⏱ Интервал: {settings['interval']} сек\n"
-                    f"📝 Текст: {settings['message']}"
-                )
-            elif text.startswith("/set_text "):
-                new_text = text.replace("/set_text ", "").strip()
-                if new_text:
-                    settings["message"] = new_text
-                    await message.reply(f"✅ Текст обновлён:\n{new_text}")
-                else:
-                    await message.reply("❌ Использование: /set_text [текст]")
-            elif text.startswith("/set_interval "):
-                try:
-                    interval = int(text.replace("/set_interval ", "").strip())
-                    if interval > 0:
-                        settings["interval"] = interval
-                        await message.reply(f"✅ Интервал: {interval} сек")
-                    else:
-                        await message.reply("❌ Минимум 1 секунда")
-                except:
-                    await message.reply("❌ Введите число")
-            elif text == "/start_spam":
-                settings["is_active"] = True
-                await message.reply("✅ Спам запущен!")
-            elif text == "/stop_spam":
-                settings["is_active"] = False
-                await message.reply("⛔ Спам остановлен!")
-            elif text == "/test":
-                try:
-                    await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
-                    await message.reply("✅ Тест отправлен в канал!")
-                except Exception as e:
-                    await message.reply(f"❌ Ошибка: {e}")
+    # Если это не личка - игнорируем
+    if message.chat.type != "private":
+        return
+    
+    # Если сообщение от админа
+    if message.from_user.id == ADMIN_ID and message.text:
+        text = message.text.strip()
+        
+        # Команды
+        if text == "/start":
+            status = "✅ Активен" if settings["is_active"] else "❌ Остановлен"
+            await message.reply(
+                f"🤖 Бот запущен\n\n"
+                f"• Интервал: {settings['interval']} сек\n"
+                f"• Статус: {status}\n\n"
+                f"📌 Используй /help"
+            )
+        elif text == "/help":
+            await message.reply(
+                f"📚 Команды:\n\n"
+                f"/start — статус\n"
+                f"/help — помощь\n"
+                f"/status — настройки\n"
+                f"/set_text [текст] — сменить текст\n"
+                f"/set_interval [сек] — сменить интервал\n"
+                f"/start_spam — запустить\n"
+                f"/stop_spam — остановить\n"
+                f"/test — тест в канал"
+            )
+        elif text == "/status":
+            await message.reply(
+                f"🔄 Активен: {'✅' if settings['is_active'] else '❌'}\n"
+                f"⏱ Интервал: {settings['interval']} сек\n"
+                f"📝 Текст: {settings['message']}"
+            )
+        elif text.startswith("/set_text "):
+            new_text = text.replace("/set_text ", "").strip()
+            if new_text:
+                settings["message"] = new_text
+                await message.reply(f"✅ Текст обновлён:\n{new_text}")
             else:
-                await message.reply("❌ Неизвестная команда. Используй /help")
+                await message.reply("❌ Использование: /set_text [текст]")
+        elif text.startswith("/set_interval "):
+            try:
+                interval = int(text.replace("/set_interval ", "").strip())
+                if interval > 0:
+                    settings["interval"] = interval
+                    await message.reply(f"✅ Интервал: {interval} сек")
+                else:
+                    await message.reply("❌ Минимум 1 секунда")
+            except:
+                await message.reply("❌ Введите число")
+        elif text == "/start_spam":
+            settings["is_active"] = True
+            await message.reply("✅ Спам запущен!")
+        elif text == "/stop_spam":
+            settings["is_active"] = False
+            await message.reply("⛔ Спам остановлен!")
+        elif text == "/test":
+            try:
+                await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
+                await message.reply("✅ Тест отправлен в канал!")
+            except Exception as e:
+                await message.reply(f"❌ Ошибка: {e}")
         else:
-            # Если пишет не админ
-            if message.from_user.id != ADMIN_ID and message.chat.type == "private":
-                await message.reply("⛔ Доступ запрещен!")
+            await message.reply("❌ Неизвестная команда. Используй /help")
+    else:
+        # Если пишет не админ
+        if message.from_user.id != ADMIN_ID:
+            await message.reply("⛔ Доступ запрещен!")
+
+# === РЕГИСТРИРУЕМ ОБРАБОТЧИКИ ===
+app.add_handler(MessageHandler(handle_messages))
+app.add_handler(CallbackQueryHandler(handle_callback))
 
 # === СПАМ-ЦИКЛ ===
 async def spam_loop():
