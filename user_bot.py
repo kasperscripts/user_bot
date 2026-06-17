@@ -57,11 +57,16 @@ async def handle_copy(client, callback_query):
         await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
         await callback_query.message.reply("📋 Напиши: @nikita1055")
 
-# === УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК (БЕЗ ФИЛЬТРОВ!) ===
+# === ПРИНУДИТЕЛЬНЫЙ ОБРАБОТЧИК ВСЕХ СООБЩЕНИЙ (БЕЗ ФИЛЬТРОВ!) ===
 @app.on_message()
-async def handle_all_messages(client, message):
-    # Логируем ВСЕ сообщения
-    logging.info(f"📩 ВСЕ СООБЩЕНИЯ: от {message.from_user.id} в чате {message.chat.id}: {message.text}")
+async def catch_all_messages(client, message):
+    # Логируем АБСОЛЮТНО ВСЕ сообщения
+    log_msg = f"🔔 СООБЩЕНИЕ: от {message.from_user.id}"
+    if message.text:
+        log_msg += f", текст: {message.text}"
+    if message.chat:
+        log_msg += f", чат: {message.chat.id} ({message.chat.type})"
+    logging.info(log_msg)
     
     # Если сообщение из лички
     if message.chat.type == "private":
@@ -78,7 +83,6 @@ async def handle_all_messages(client, message):
                     f"• Статус: {status}\n\n"
                     f"📌 Используй /help"
                 )
-            
             elif text == "/help":
                 await message.reply(
                     f"📚 Команды:\n\n"
@@ -91,14 +95,12 @@ async def handle_all_messages(client, message):
                     f"/stop_spam — остановить\n"
                     f"/test — тест в канал"
                 )
-            
             elif text == "/status":
                 await message.reply(
                     f"🔄 Активен: {'✅' if settings['is_active'] else '❌'}\n"
                     f"⏱ Интервал: {settings['interval']} сек\n"
                     f"📝 Текст: {settings['message']}"
                 )
-            
             elif text.startswith("/set_text "):
                 new_text = text.replace("/set_text ", "").strip()
                 if new_text:
@@ -106,7 +108,6 @@ async def handle_all_messages(client, message):
                     await message.reply(f"✅ Текст обновлён:\n{new_text}")
                 else:
                     await message.reply("❌ Использование: /set_text [текст]")
-            
             elif text.startswith("/set_interval "):
                 try:
                     interval = int(text.replace("/set_interval ", "").strip())
@@ -117,27 +118,23 @@ async def handle_all_messages(client, message):
                         await message.reply("❌ Минимум 1 секунда")
                 except:
                     await message.reply("❌ Введите число")
-            
             elif text == "/start_spam":
                 settings["is_active"] = True
                 await message.reply("✅ Спам запущен!")
-            
             elif text == "/stop_spam":
                 settings["is_active"] = False
                 await message.reply("⛔ Спам остановлен!")
-            
             elif text == "/test":
                 try:
                     await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
                     await message.reply("✅ Тест отправлен в канал!")
                 except Exception as e:
                     await message.reply(f"❌ Ошибка: {e}")
-            
             else:
                 await message.reply("❌ Неизвестная команда. Используй /help")
         else:
             # Если пишет не админ
-            if message.from_user.id != ADMIN_ID:
+            if message.from_user.id != ADMIN_ID and message.chat.type == "private":
                 await message.reply("⛔ Доступ запрещен!")
 
 # === СПАМ-ЦИКЛ ===
@@ -156,7 +153,10 @@ async def spam_loop():
 
 # === ЗАПУСК ===
 async def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     try:
         async with app:
             asyncio.create_task(spam_loop())
