@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +14,7 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
 
-CHANNEL_ID = "oxidebtatstvo"  # или "@oxidebtatstvo"
+CHANNEL_ID = "oxidebtatstvo"
 
 # === СООБЩЕНИЕ ===
 MESSAGE_TEXT = "продаю анрут чит магик 270 руб писать `@nikita1055`"
@@ -43,19 +43,10 @@ def get_button():
         [InlineKeyboardButton("📋 НАПИСАТЬ @nikita1055", callback_data="copy_nikita1055")]
     ])
 
-# === ОБРАБОТЧИК КНОПКИ ===
-async def handle_copy(client, callback_query):
-    if callback_query.data == "copy_nikita1055":
-        await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
-        await callback_query.message.reply("📋 Напиши: @nikita1055")
-
-# === ОБРАБОТЧИК НОВЫХ СООБЩЕНИЙ В КАНАЛЕ ===
-async def handle_channel_messages(client, message):
-    # Проверяем, что сообщение из нужного канала
-    if message.chat.username != CHANNEL_ID.replace("@", ""):
-        return
-    
-    # Игнорируем свои же сообщения (чтобы не зациклиться)
+# === ОБРАБОТЧИК СООБЩЕНИЙ В КАНАЛЕ ===
+@app.on_message(filters.chat(CHANNEL_ID) & filters.incoming)
+async def handle_channel_messages(client, message: Message):
+    # Игнорируем свои же сообщения
     if message.from_user and message.from_user.is_self:
         return
     
@@ -72,19 +63,23 @@ async def handle_channel_messages(client, message):
     except Exception as e:
         logging.error(f"❌ Ошибка при отправке: {e}")
 
+# === ОБРАБОТЧИК КНОПКИ ===
+@app.on_callback_query()
+async def handle_copy(client, callback_query: CallbackQuery):
+    if callback_query.data == "copy_nikita1055":
+        await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
+        await callback_query.message.reply("📋 Напиши: @nikita1055")
+
 # === ЗАПУСК ===
 async def main():
     logging.basicConfig(level=logging.INFO)
     
     while True:
         try:
-            client = create_client()
+            # Создаём клиент
+            app = create_client()
             
-            # Регистрируем обработчики
-            client.add_handler(filters.chat(CHANNEL_ID) & filters.incoming, handle_channel_messages)
-            client.add_handler(filters.callback_query, handle_copy)
-            
-            async with client:
+            async with app:
                 logging.info("🚀 Бот запущен. Ожидаю сообщения в канале...")
                 await asyncio.Event().wait()
                 
