@@ -25,7 +25,7 @@ settings = {
     "is_active": True,
 }
 
-# === КЛИЕНТ ===
+# === СОЗДАНИЕ КЛИЕНТА ===
 def create_client():
     if SESSION_STRING:
         return Client(
@@ -173,10 +173,6 @@ async def spam_loop():
                 await asyncio.sleep(settings["interval"] + random.uniform(-2, 2))
             except Exception as e:
                 logging.error(f"❌ Ошибка в спам-цикле: {e}")
-                if "AUTH_KEY_DUPLICATED" in str(e):
-                    logging.warning("⚠️ Дубликат сессии, пересоздаём клиент...")
-                    global app
-                    app = create_client()
                 await asyncio.sleep(10)
         else:
             await asyncio.sleep(1)
@@ -190,8 +186,7 @@ async def main():
             logging.info("🚀 Бот запущен")
             await asyncio.Event().wait()
     except Exception as e:
-        if "AUTH_KEY_DUPLICATED" in str(e):
-            logging.error("❌ Ошибка дубликата сессии!")
+        logging.error(f"❌ Ошибка при запуске: {e}")
         raise
 
 if __name__ == "__main__":
