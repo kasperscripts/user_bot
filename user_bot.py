@@ -25,7 +25,7 @@ settings = {
     "is_active": True,
 }
 
-# === СОЗДАНИЕ КЛИЕНТА ===
+# === КЛИЕНТ ===
 def create_client():
     if SESSION_STRING:
         return Client(
@@ -60,6 +60,7 @@ async def handle_copy(client, callback_query):
 # === КОМАНДЫ ===
 @app.on_message(filters.private & filters.command("start"))
 async def start_command(client, message):
+    logging.info(f"📩 Команда /start от {message.from_user.id}")
     if message.from_user.id != ADMIN_ID:
         await message.reply("⛔ Доступ запрещен!")
         return
@@ -150,9 +151,12 @@ async def test_send(client, message):
     except Exception as e:
         await message.reply(f"❌ Ошибка: {e}")
 
-# === ЭХО-ОБРАБОТЧИК (ОТВЕЧАЕТ НА ВСЕ СООБЩЕНИЯ В ЛС) ===
+# === УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК (ОТВЕЧАЕТ НА ВСЕ СООБЩЕНИЯ В ЛС) ===
 @app.on_message(filters.private)
 async def echo(client, message):
+    # Логируем ВСЕ входящие сообщения
+    logging.info(f"📩 Получено сообщение от {message.from_user.id}: {message.text}")
+    
     try:
         await message.reply(
             f"✅ Сообщение получено!\n\n"
@@ -160,8 +164,9 @@ async def echo(client, message):
             f"🆔 Твой ID: {message.from_user.id}\n\n"
             f"📌 Используй /help для команд"
         )
+        logging.info(f"✅ Ответ отправлен пользователю {message.from_user.id}")
     except Exception as e:
-        logging.error(f"Ошибка в эхо: {e}")
+        logging.error(f"❌ Ошибка при ответе: {e}")
 
 # === СПАМ-ЦИКЛ ===
 async def spam_loop():
