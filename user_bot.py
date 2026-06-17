@@ -15,27 +15,24 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
 
-CHANNEL_ID = "oxidebtatstvo"  # или "@oxidebtatstvo"
-ADMIN_ID = 1302493787  # ТВОЙ ОСНОВНОЙ ID
+CHANNEL_ID = "oxidebtatstvo"
+ADMIN_ID = 1302493787
 ADMIN_USERNAME = "nikita1055"
 
-# Настройки спама
 settings = {
     "message": "продаю анрут чит магик 270 руб писать @nikita1055",
     "interval": 60,
     "is_active": True,
 }
 
-# === СОЗДАНИЕ КЛИЕНТА С ЗАЩИТОЙ ОТ ДУБЛИКАТА ===
+# === КЛИЕНТ ===
 def create_client():
-    """Создает клиент с обработкой ошибки дубликата сессии"""
     if SESSION_STRING:
         return Client(
             name="user_bot",
             api_id=API_ID,
             api_hash=API_HASH,
             session_string=SESSION_STRING,
-            # Автоматически переподключается при ошибке
             sleep_threshold=60,
         )
     else:
@@ -48,149 +45,136 @@ def create_client():
 
 app = create_client()
 
-# === КНОПКА С КОПИРОВАНИЕМ ===
+# === КНОПКА ===
 def get_copy_button():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            "📋 НАПИСАТЬ @nikita1055",
-            callback_data=f"copy_{ADMIN_USERNAME}"
-        )]
+        [InlineKeyboardButton("📋 НАПИСАТЬ @nikita1055", callback_data="copy_nikita1055")]
     ])
 
-# === ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ ===
 @app.on_callback_query()
 async def handle_copy(client, callback_query):
-    if callback_query.data.startswith("copy_"):
-        username = callback_query.data.replace("copy_", "")
-        await callback_query.answer(
-            f"@{username} скопирован! ✅",
-            show_alert=True
-        )
-        await callback_query.message.reply(
-            f"📋 **Юзернейм для связи:**\n\n"
-            f"`@{username}`\n\n"
-            f"👉 Нажми и удерживай, чтобы скопировать",
-            parse_mode="Markdown"
-        )
+    if callback_query.data == "copy_nikita1055":
+        await callback_query.answer("✅ @nikita1055 скопирован!", show_alert=True)
+        await callback_query.message.reply("📋 Напиши: @nikita1055")
 
-# === УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК КОМАНД (ДЛЯ ТВОЕГО ОСНОВНОГО ID) ===
-@app.on_message(filters.private)
-async def handle_commands(client, message):
-    # Проверяем, что сообщение от твоего основного аккаунта
+# === КОМАНДЫ ===
+@app.on_message(filters.private & filters.command("start"))
+async def start_command(client, message):
     if message.from_user.id != ADMIN_ID:
         await message.reply("⛔ Доступ запрещен!")
         return
-    
-    text = message.text.strip()
-    
-    # Команда /start
-    if text == "/start":
-        status = "✅ Активен" if settings["is_active"] else "❌ Остановлен"
-        await message.reply(
-            f"🤖 *Бот управления*\n\n"
-            f"• Интервал: {settings['interval']} сек\n"
-            f"• Статус: {status}\n\n"
-            f"📌 Используй /help для списка команд",
-            parse_mode="Markdown"
-        )
-    
-    # Команда /help
-    elif text == "/help":
-        await message.reply(
-            f"📚 *Команды:*\n\n"
-            f"/start — статус бота\n"
-            f"/help — это сообщение\n"
-            f"/status — текущие настройки\n"
-            f"/set_text [текст] — изменить текст\n"
-            f"/set_interval [сек] — изменить интервал\n"
-            f"/start_spam — запустить рассылку\n"
-            f"/stop_spam — остановить рассылку\n"
-            f"/test — тест в канал\n\n"
-            f"📊 *Сейчас:*\n"
-            f"• Текст: `{settings['message']}`\n"
-            f"• Интервал: {settings['interval']} сек\n"
-            f"• Статус: {'✅ Активен' if settings['is_active'] else '❌ Остановлен'}",
-            parse_mode="Markdown"
-        )
-    
-    # Команда /status
-    elif text == "/status":
-        await message.reply(
-            f"📊 *Статус*\n\n"
-            f"🔄 Активен: {'✅ Да' if settings['is_active'] else '❌ Нет'}\n"
-            f"⏱ Интервал: {settings['interval']} сек\n"
-            f"📝 Текст: `{settings['message']}`",
-            parse_mode="Markdown"
-        )
-    
-    # Команда /set_text
-    elif text.startswith("/set_text "):
-        new_text = text.replace("/set_text ", "").strip()
-        if not new_text:
-            await message.reply("❌ Использование: `/set_text [новый текст]`", parse_mode="Markdown")
-            return
-        settings["message"] = new_text
-        await message.reply(f"✅ Текст обновлён!\n\n`{new_text}`", parse_mode="Markdown")
-    
-    # Команда /set_interval
-    elif text.startswith("/set_interval "):
-        try:
-            interval = int(text.replace("/set_interval ", "").strip())
-            if interval < 1:
-                await message.reply("❌ Интервал должен быть > 0")
-                return
-            settings["interval"] = interval
-            await message.reply(f"✅ Интервал: {interval} сек")
-        except ValueError:
-            await message.reply("❌ Введите число!")
-    
-    # Команда /start_spam
-    elif text == "/start_spam":
-        if settings["is_active"]:
-            await message.reply("⚠️ Спам уже запущен!")
-            return
-        settings["is_active"] = True
-        await message.reply("✅ Спам запущен!")
-    
-    # Команда /stop_spam
-    elif text == "/stop_spam":
-        settings["is_active"] = False
-        await message.reply("⛔ Спам остановлен!")
-    
-    # Команда /test
-    elif text == "/test":
-        try:
-            await app.send_message(
-                CHANNEL_ID,
-                settings["message"],
-                reply_markup=get_copy_button()
-            )
-            await message.reply("✅ Тест отправлен в канал!")
-        except Exception as e:
-            await message.reply(f"❌ Ошибка: {e}")
-    
-    # Неизвестная команда
-    else:
-        await message.reply("❌ Неизвестная команда. Используй /help")
+    status = "✅ Активен" if settings["is_active"] else "❌ Остановлен"
+    await message.reply(
+        f"🤖 Бот запущен\n\n"
+        f"• Интервал: {settings['interval']} сек\n"
+        f"• Статус: {status}"
+    )
 
-# === ОСНОВНОЙ ЦИКЛ СПАМА ===
+@app.on_message(filters.private & filters.command("help"))
+async def help_command(client, message):
+    if message.from_user.id != ADMIN_ID:
+        await message.reply("⛔ Доступ запрещен!")
+        return
+    await message.reply(
+        f"📚 Команды:\n\n"
+        f"/start — статус\n"
+        f"/help — помощь\n"
+        f"/status — настройки\n"
+        f"/set_text [текст] — сменить текст\n"
+        f"/set_interval [сек] — сменить интервал\n"
+        f"/start_spam — запустить\n"
+        f"/stop_spam — остановить\n"
+        f"/test — тест в канал"
+    )
+
+@app.on_message(filters.private & filters.command("status"))
+async def status(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.reply(
+        f"🔄 Активен: {'✅' if settings['is_active'] else '❌'}\n"
+        f"⏱ Интервал: {settings['interval']} сек\n"
+        f"📝 Текст: {settings['message']}"
+    )
+
+@app.on_message(filters.private & filters.command("set_text"))
+async def set_text(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(" ", 1)
+    if len(parts) < 2:
+        await message.reply("❌ Использование: /set_text [текст]")
+        return
+    settings["message"] = parts[1]
+    await message.reply(f"✅ Текст обновлён:\n{parts[1]}")
+
+@app.on_message(filters.private & filters.command("set_interval"))
+async def set_interval(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(" ", 1)
+    if len(parts) < 2:
+        await message.reply("❌ Использование: /set_interval [сек]")
+        return
+    try:
+        interval = int(parts[1])
+        if interval < 1:
+            await message.reply("❌ Минимум 1 секунда")
+            return
+        settings["interval"] = interval
+        await message.reply(f"✅ Интервал: {interval} сек")
+    except ValueError:
+        await message.reply("❌ Введите число")
+
+@app.on_message(filters.private & filters.command("start_spam"))
+async def start_spam(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    settings["is_active"] = True
+    await message.reply("✅ Спам запущен!")
+
+@app.on_message(filters.private & filters.command("stop_spam"))
+async def stop_spam(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    settings["is_active"] = False
+    await message.reply("⛔ Спам остановлен!")
+
+@app.on_message(filters.private & filters.command("test"))
+async def test_send(client, message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
+        await message.reply("✅ Тест отправлен в канал!")
+    except Exception as e:
+        await message.reply(f"❌ Ошибка: {e}")
+
+# === ЭХО-ОБРАБОТЧИК (ОТВЕЧАЕТ НА ВСЕ СООБЩЕНИЯ В ЛС) ===
+@app.on_message(filters.private)
+async def echo(client, message):
+    try:
+        await message.reply(
+            f"✅ Сообщение получено!\n\n"
+            f"📝 Текст: {message.text}\n"
+            f"🆔 Твой ID: {message.from_user.id}\n\n"
+            f"📌 Используй /help для команд"
+        )
+    except Exception as e:
+        logging.error(f"Ошибка в эхо: {e}")
+
+# === СПАМ-ЦИКЛ ===
 async def spam_loop():
     while True:
         if settings["is_active"]:
             try:
-                await app.send_message(
-                    CHANNEL_ID,
-                    settings["message"],
-                    reply_markup=get_copy_button()
-                )
+                await app.send_message(CHANNEL_ID, settings["message"], reply_markup=get_copy_button())
                 logging.info(f"✅ Отправлено в {datetime.now()}")
                 await asyncio.sleep(settings["interval"] + random.uniform(-2, 2))
             except Exception as e:
                 logging.error(f"❌ Ошибка в спам-цикле: {e}")
-                # Если ошибка связана с сессией - пробуем переподключиться
                 if "AUTH_KEY_DUPLICATED" in str(e):
-                    logging.warning("⚠️ Обнаружен дубликат сессии, пересоздаём клиент...")
-                    # Пересоздаём клиент
+                    logging.warning("⚠️ Дубликат сессии, пересоздаём клиент...")
                     global app
                     app = create_client()
                 await asyncio.sleep(10)
@@ -200,8 +184,6 @@ async def spam_loop():
 # === ЗАПУСК ===
 async def main():
     logging.basicConfig(level=logging.INFO)
-    
-    # Обработка ошибки дубликата при старте
     try:
         async with app:
             asyncio.create_task(spam_loop())
@@ -209,9 +191,7 @@ async def main():
             await asyncio.Event().wait()
     except Exception as e:
         if "AUTH_KEY_DUPLICATED" in str(e):
-            logging.error("❌ Ошибка дубликата сессии при старте!")
-            logging.error("👉 Удали все сессии в Telegram (Настройки → Устройства)")
-            logging.error("👉 И пересоздай сессию заново через Termux")
+            logging.error("❌ Ошибка дубликата сессии!")
         raise
 
 if __name__ == "__main__":
