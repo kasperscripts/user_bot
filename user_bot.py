@@ -1,4 +1,4 @@
-# user_bot.py
+# user_bot.py (исправленная версия)
 import asyncio
 import logging
 import random
@@ -15,7 +15,8 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
 
-CHANNEL_ID = "https://t.me/oxidebtatstvo"
+# ✅ ИСПРАВЛЕНО: используем username канала (без https://t.me/)
+CHANNEL_ID = "oxidebtatstvo"  # или "@oxidebtatstvo" - тоже работает
 ADMIN_ID = 1302493787
 ADMIN_USERNAME = "nikita1055"
 
@@ -25,7 +26,7 @@ settings = {
     "is_active": True,
 }
 
-# === КЛИЕНТ (с сессией или без) ===
+# === КЛИЕНТ ===
 if SESSION_STRING:
     app = Client(
         name="user_bot",
